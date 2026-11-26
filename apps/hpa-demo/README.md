@@ -123,8 +123,8 @@ The scripts work in namespace `hpa-demo-dev` by default. Set `HPA_DEMO_ENV=prd` 
 
 ## What it looked like on the author's homelab
 
-A k3s cluster, 4 CPU / 8 GB per node. The screenshots are from the earlier 2-node setup (docker01 and linux01,
-namespace `hpa-demo`); the homelab now runs DEV on dev01 and PRD on prd01, in `hpa-demo-dev` / `hpa-demo-prd`.
+A k3s cluster, 4 CPU / 8 GB per node. The screenshots are from an earlier 2-node setup
+(namespace `hpa-demo`); the homelab now runs DEV on dev01 and PRD on prd01, in `hpa-demo-dev` / `hpa-demo-prd`.
 
 **Under load:** CPU at 501% of target, the HPA has scaled from 1 to 5 pods, spread across both nodes.
 
