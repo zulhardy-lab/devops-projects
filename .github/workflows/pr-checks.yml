@@ -1,0 +1,127 @@
+name: PR checks
+
+# Every pull request, on GitHub-hosted runners (free for public repos), never on ops01:
+# the homelab's self-hosted runner (shared with the homelab repo) is reserved for workflows triggered by pushes
+# to main, i.e. only after someone has reviewed and merged. No approvals needed here: nothing is deployed.
+#
+#   lint       : yamllint, shellcheck
+#   repo-scan  : Trivy: secrets, misconfigurations (Dockerfiles, Kubernetes, ...), dependency vulnerabilities
+#   detect     : which apps the PR touches (all of them if shared files changed)
+#   app        : per app: unit tests -> build image -> integration test against the container -> image scan
+#   quality    : one summary check that fails if any of the above failed (make THIS the required check)
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install pinned lint tools
+        run: |
+          pip install yamllint==1.38.0
+          # shellcheck from Ubuntu's signed archive (usually already on the runner image)
+          command -v shellcheck >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q shellcheck; }
+
+      - name: Lint
+        run: bash scripts/lint.sh
+
+  repo-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Security scan (repo)
+        run: bash scripts/security-scan.sh repo
+
+  detect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.list.outputs.apps }}
+    steps:
+      - name: Checkout (full history, to compare commits)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: List apps to test
+        id: list
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          apps="$(bash scripts/changed-apps.sh push "${BASE}" "${HEAD}")"
+          echo "Apps: ${apps}"
+          echo "apps=${apps}" >> "${GITHUB_OUTPUT}"
+
+  app:
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/unit-test.sh "${APP}"
+
+      - name: Build image and run the integration test against the container
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/integration-test.sh "${APP}"
+
+      - name: Security scan (image)
+        env:
+          APP: ${{ matrix.app }}
+        run: |
+          if [ -f "apps/${APP}/app/Dockerfile" ]; then
+            bash scripts/security-scan.sh image "local/${APP}:integration"
+          else
+            echo "${APP} has no Dockerfile: no image of ours to scan."
+          fi
+
+  quality:
+    needs: [lint, repo-scan, detect, app]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: All checks passed?
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "${RESULTS}" | python3 -I -c '
+          import json, sys
+          bad = {k: v["result"] for k, v in json.load(sys.stdin).items() if v["result"] not in ("success", "skipped")}
+          # "app" is skipped when the PR touches no app; everything else must succeed.
+          print("Failed:", bad) if bad else print("All checks passed.")
+          sys.exit(1 if bad else 0)'

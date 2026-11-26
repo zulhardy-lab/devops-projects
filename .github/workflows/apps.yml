@@ -1,0 +1,217 @@
+name: apps
+
+# After a merge: test, scan, build, then deploy every changed app under apps/ to DEV, then PRD.
+#
+#   detect         (GitHub-hosted) : which apps changed (all of them if shared files changed)
+#   test           (GitHub-hosted) : unit tests per app
+#   repo-scan      (GitHub-hosted) : Trivy on the whole repo (secrets, misconfigurations, vulnerabilities)
+#   build          (GitHub-hosted) : build image -> integration test against the container -> image scan
+#                                    -> push ghcr.io/zulhardy-lab/<app> (only if all of that passed)
+#   onboarded      (ops01)         : which of the apps to deploy are onboarded (read-only OpenBao role).
+#                                    Apps with apps/<app>/deploy.disabled stop after build.
+#                                    Apps not onboarded get a warning and are not deployed.
+#   deploy-dev     (ops01)         : deploy to <app>-dev on dev01, then smoke test       [environment: dev]
+#   deploy-prd     (ops01) APPROVAL: deploy to <app>-prd on prd01, then smoke test       [environment: prd]
+#
+# This repo can only DEPLOY. Onboarding (namespaces, deployer accounts, OpenBao roles) is owned by the homelab repo
+# (zulhardy-lab/homelab): an app is onboarded once it is in that repo's homelab_apps list and the homelab pipeline
+# has run after the platform approval.
+#
+# Approvals are GitHub environment rules (required reviewers). OpenBao only hands out DEV credentials to jobs in
+# environment "dev" and PRD credentials to jobs in "prd" (the GitHub token only names an environment after its
+# approval has passed).
+#
+# The ops01 runner is shared with the homelab repo (one org-level runner), so jobs there run one at a time.
+# No "concurrency" group on purpose: GitHub keeps only one waiting job per group and cancels older waiting ones.
+#
+# NOTE: OpenBao only accepts GitHub tokens from this file on main of this repo (by repo ID).
+#       Renaming it breaks deploys until the homelab repo's scripts/bootstrap-automation.sh is updated and re-run.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "scripts/**"
+      - ".trivyignore"
+      - ".github/workflows/apps.yml"
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App to test, build and deploy (folder name under apps/), or 'all'"
+        required: true
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.list.outputs.apps }} # test, scan, build
+      deploy_apps: ${{ steps.list.outputs.deploy_apps }} # also deploy (no apps/<app>/deploy.disabled)
+    steps:
+      - name: Checkout (full history, to compare commits)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: List apps to build and deploy
+        id: list
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          INPUT_APP: ${{ inputs.app }}
+        run: |
+          if [ "${EVENT}" = "workflow_dispatch" ]; then
+            apps="$(bash scripts/changed-apps.sh dispatch "${INPUT_APP}")"
+          else
+            apps="$(bash scripts/changed-apps.sh push "${BEFORE}" "${AFTER}")"
+          fi
+          deploy_apps="$(bash scripts/changed-apps.sh deployable "${apps}")"
+          echo "Apps to test and build: ${apps}"
+          echo "Apps to deploy:         ${deploy_apps}"
+          echo "apps=${apps}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_apps=${deploy_apps}" >> "${GITHUB_OUTPUT}"
+
+  test:
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/unit-test.sh "${APP}"
+
+  repo-scan:
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Security scan (repo)
+        run: bash scripts/security-scan.sh repo
+
+  build:
+    needs: [detect, test, repo-scan]
+    # Only main: a manual run on an unmerged branch must not publish images.
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io/zulhardy-lab/<app> with the short-lived GITHUB_TOKEN
+    steps:
+      - name: Checkout (full history, needed to compute the image tag)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build, integration test, scan, then push ${{ matrix.app }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          APP: ${{ matrix.app }}
+        run: bash scripts/build-image.sh "${APP}"
+
+  onboarded:
+    needs: [detect, build]
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.deploy_apps != '[]'
+    runs-on: [self-hosted, homelab]
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token for OpenBao (role projects-check: read-only)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Apps onboarded on the homelab
+        id: check
+        env:
+          APPS: ${{ needs.detect.outputs.deploy_apps }}
+        run: |
+          out="$(mktemp "${RUNNER_TEMP}/ready.XXXXXX")"
+          bash scripts/ci-apps.sh onboarded "${APPS}" "${out}"
+          echo "ready=$(cat "${out}")" >> "${GITHUB_OUTPUT}"
+          rm -f "${out}"
+
+  deploy-dev:
+    needs: onboarded
+    if: github.ref == 'refs/heads/main' && needs.onboarded.outputs.ready != '[]'
+    runs-on: [self-hosted, homelab]
+    environment: dev # no approval
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        app: ${{ fromJSON(needs.onboarded.outputs.ready) }}
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token for OpenBao (role projects-dev: DEV deployers only)
+    steps:
+      - name: Checkout (full history, needed to compute the image tag)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Deploy ${{ matrix.app }} to DEV and smoke-test it
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/ci-apps.sh deploy "${APP}" dev
+
+  deploy-prd:
+    needs: [onboarded, deploy-dev]
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, homelab]
+    environment: prd # approval required
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        app: ${{ fromJSON(needs.onboarded.outputs.ready) }}
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token for OpenBao (role projects-prd: PRD deployers only)
+    steps:
+      - name: Checkout (full history, needed to compute the image tag)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Deploy ${{ matrix.app }} to PRD and smoke-test it
+        env:
+          APP: ${{ matrix.app }}
+        run: bash scripts/ci-apps.sh deploy "${APP}" prd

@@ -1,0 +1,19 @@
+# Secrets and keys — never commit
+*.pem
+*.key
+id_*
+!id_*.pub
+.env
+.env.*
+*.vault
+vault-pass*
+
+# Python bytecode caches (created when tests run locally)
+__pycache__/
+*.pyc
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

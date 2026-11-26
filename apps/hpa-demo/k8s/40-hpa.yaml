@@ -1,0 +1,23 @@
+# Autoscaling: add pods when average CPU goes above 50% of the request (100m), remove them when it drops.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hpa-demo
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleDown:
+      # Default is 300s; 60s makes the scale-down visible sooner in a demo.
+      stabilizationWindowSeconds: 60

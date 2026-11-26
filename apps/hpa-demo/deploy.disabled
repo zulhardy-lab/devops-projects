@@ -1,0 +1,12 @@
+Deploying hpa-demo to DEV and PRD is switched off (decided 2026-11-27): no demo should run on the homelab for now.
+
+While this file exists, the apps pipeline still runs hpa-demo's unit tests, integration test and security scans,
+and builds its image, but does not onboard it or deploy it to DEV or PRD.
+
+To switch deploying back on:
+  1. In the homelab repo (zulhardy-lab/homelab): add hpa-demo to homelab_apps (ansible/inventory/group_vars/all.yml)
+     in a pull request, merge, and approve the homelab run (environment "platform"). That onboards it.
+  2. Here: delete this file in a pull request and merge. DEV then deploys automatically, PRD after approval
+     (environment "prd").
+
+You can still try the demo by hand on any cluster: see README.md ("Run it").

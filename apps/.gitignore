@@ -1,0 +1,3 @@
+# Python bytecode caches (created when tests run locally)
+__pycache__/
+*.pyc
