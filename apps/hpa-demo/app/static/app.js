@@ -88,6 +88,66 @@ setInterval(() => {
   if (Date.now() - S.bucketAt >= 10000) { S.buckets = S.buckets.slice(1).concat([0]); S.bucketAt = Date.now(); }
 }, 100);
 
+// ---------- console: kubectl get pods --watch, worked out from the difference between two polls ----------
+const C = { started: false, prev: null, prevDesired: null, online: null, paused: false, held: [] };
+const MAX_LINES = 300;
+const pad = (v, n) => String(v).padEnd(n);
+const clock = () => new Date().toLocaleTimeString([], { hour12: false });
+function age(iso) {
+  if (!iso) return "-";
+  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+  return s < 120 ? `${s}s` : s < 7200 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`;
+}
+function podRow(p) {
+  return `${pad(p.name, 30)} ${pad(p.state === "Ready" ? "1/1" : "0/1", 6)} ${pad(p.state, 12)} ${pad(p.node || "-", 8)} ${age(p.created)}`;
+}
+// parts: [[text, class], ...]; classes: t time, p prompt, h header, add, del, chg, hpa, warn
+function say(parts) {
+  if (C.paused) { C.held.push(parts); return; }
+  const box = $("console");
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+  const line = html("div");
+  for (const [text, cls] of parts) line.append(cls ? html("span", { class: cls }, text) : document.createTextNode(text));
+  box.append(line);
+  while (box.childElementCount > MAX_LINES) box.firstElementChild.remove();
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+function consoleUpdate(st) {
+  if (!st.available) {
+    if (C.online !== false) say([[`${clock()}  `, "t"], [`# no cluster data: ${st.reason || "unknown"}`, "warn"]]);
+    C.online = false;
+    return;
+  }
+  if (C.online === false) say([[`${clock()}  `, "t"], ["# cluster data is back", "hpa"]]);
+  C.online = true;
+  const pods = st.pods || [], now = new Map(pods.map((p) => [p.name, p]));
+  if (!C.started) {
+    C.started = true;
+    $("console-cmd").textContent = `kubectl get pods -n ${st.namespace || "?"} --watch`;
+    say([["$ ", "p"], [`kubectl get pods -n ${st.namespace || "?"} --watch`]]);
+    say([[`${pad("", 10)}${pad("NAME", 30)} ${pad("READY", 6)} ${pad("STATUS", 12)} ${pad("NODE", 8)} AGE`, "h"]]);
+    for (const p of pods) say([[`${clock()}  `, "t"], ["  "], [podRow(p)]]);
+  } else {
+    for (const p of pods) {
+      const old = C.prev.get(p.name);
+      if (!old) say([[`${clock()}  `, "t"], ["+ ", "add"], [podRow(p), "add"], ["   created", "add"]]);
+      else if (old.state !== p.state) say([[`${clock()}  `, "t"], ["~ ", "chg"], [podRow(p), p.state === "Terminating" ? "del" : "chg"]]);
+    }
+    for (const [name, old] of C.prev) {
+      if (!now.has(name)) say([[`${clock()}  `, "t"], ["- ", "del"], [`${pad(name, 30)} ${pad("0/1", 6)} ${pad("Deleted", 12)} ${pad(old.node || "-", 8)} -`, "del"]]);
+    }
+  }
+  C.prev = now;
+  const a = st.autoscaler;
+  if (a && a.desired !== undefined && a.desired !== null) {
+    if (C.prevDesired !== null && a.desired !== C.prevDesired) {
+      const why = a.cpuPercent !== null && a.cpuPercent !== undefined ? ` (CPU ${a.cpuPercent}%, target ${a.targetPercent}%)` : "";
+      say([[`${clock()}  `, "t"], ["  "], [`horizontalpodautoscaler/hpa-demo: ${a.desired > C.prevDesired ? "scale out" : "scale in"} ${C.prevDesired} \u2192 ${a.desired} pods${why}`, "hpa"]]);
+    }
+    C.prevDesired = a.desired;
+  }
+}
+
 // ---------- polling ----------
 async function poll() {
   try {
@@ -104,6 +164,7 @@ async function poll() {
   S.cpuHist = S.cpuHist.concat([avg === null ? 0 : avg]).slice(-POINTS);
   S.podHist = S.podHist.concat([pods.filter((p) => p.state !== "Terminating").length]).slice(-POINTS);
   render(avg);
+  consoleUpdate(S.state);
 }
 
 // ---------- drawing ----------
@@ -290,6 +351,13 @@ document.addEventListener("DOMContentLoaded", () => {
     $("levels").append(b);
   }
   $("level").addEventListener("input", (e) => setLevel(e.target.value));
+  $("console-pause").addEventListener("click", (e) => {
+    C.paused = !C.paused;
+    e.currentTarget.setAttribute("aria-pressed", String(C.paused));
+    e.currentTarget.textContent = C.paused ? `Resume${C.held.length ? ` (${C.held.length})` : ""}` : "Pause";
+    if (!C.paused) { const held = C.held; C.held = []; held.forEach(say); }
+  });
+  $("console-clear").addEventListener("click", () => { $("console").replaceChildren(); C.held = []; });
   setLevel(0);
   poll();
   setInterval(poll, POLL_MS);

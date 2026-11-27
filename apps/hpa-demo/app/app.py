@@ -94,6 +94,7 @@ def build_state(pods: dict, hpa: dict | None, metrics: dict | None, served_by: s
         out.append({
             "name": name,
             "node": spec.get("nodeName") or "",
+            "created": meta.get("creationTimestamp"),
             "state": phase,
             "cpuMillicores": round(cpu_m, 1) if cpu_m is not None else None,
             "cpuPercent": round(cpu_m / CPU_REQUEST_M * 100) if cpu_m is not None else None,
