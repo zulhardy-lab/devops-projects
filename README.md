@@ -32,11 +32,11 @@ flowchart LR
 | Stage | Where it runs | Approval? | What it does |
 |---|---|---|---|
 | **PR checks** ([`pr-checks.yml`](.github/workflows/pr-checks.yml)) | GitHub-hosted | No | yamllint, shellcheck, Trivy repo scan; per changed app: unit tests, image build, integration test against the container, image scan. Summary check `quality` |
-| **Review and merge** | GitHub | **Person** | Only people merge; direct pushes to `main` are blocked |
+| **Review and merge** | GitHub | **Manual** | The review and merge are done manually; direct pushes to `main` are blocked |
 | **Test, scan, build** ([`apps.yml`](.github/workflows/apps.yml)) | GitHub-hosted | No | The same tests and scans on the merged code; build, integration test, image scan; only then push to GHCR |
 | **Onboarded?** | homelab runner (ops01) | No | Read-only check that `<app>-dev` / `<app>-prd` exist on the homelab. Apps that aren't get a warning and stop here |
 | **Deploy to DEV** | homelab runner (ops01) | No (`dev`) | 10-minute DEV deployer token from OpenBao; rollout check; smoke test through the DEV address |
-| **Deploy to PRD** | homelab runner (ops01) | **Yes** (`prd`) | 10-minute PRD deployer token; rollout check; smoke test through the PRD address |
+| **Deploy to PRD** | homelab runner (ops01) | **Manual** (`prd`) | 10-minute PRD deployer token; rollout check; smoke test through the PRD address |
 
 Credentials: the deploy jobs log in to the homelab's OpenBao with the job's GitHub OIDC token. OpenBao only accepts
 tokens from **this repo** (by ID), branch `main`, workflow `apps.yml`, and gives DEV tokens only to jobs in

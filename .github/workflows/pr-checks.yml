@@ -2,7 +2,7 @@ name: PR checks
 
 # Every pull request, on GitHub-hosted runners (free for public repos), never on ops01:
 # the homelab's self-hosted runner (shared with the homelab repo) is reserved for workflows triggered by pushes
-# to main, i.e. only after someone has reviewed and merged. No approvals needed here: nothing is deployed.
+# to main, i.e. only after the manual review and merge. No approvals needed here: nothing is deployed.
 #
 #   lint       : yamllint, shellcheck
 #   repo-scan  : Trivy: secrets, misconfigurations (Dockerfiles, Kubernetes, ...), dependency vulnerabilities
