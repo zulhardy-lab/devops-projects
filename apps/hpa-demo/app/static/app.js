@@ -253,14 +253,15 @@ function drawBars(pods, target) {
   const ul = $("pod-bars");
   ul.replaceChildren();
   if (!pods.length) { ul.append(html("li", { class: "muted small" }, "No pods to show.")); return; }
-  for (const p of pods.slice(0, 6)) {
+  const order = { Ready: 0, Starting: 1, Terminating: 2 };  // running pods first; terminating ones at the bottom
+  const sorted = pods.slice().sort((x, y) => (order[x.state] ?? 3) - (order[y.state] ?? 3) || x.name.localeCompare(y.name));
+  for (const p of sorted) {
     const v = p.cpuPercent, busy = v !== null && v > target;
-    const li = html("li");
-    li.append(html("span", { class: "muted small" }, `${p.name}${p.state !== "Ready" ? ` · ${p.state.toLowerCase()}` : ""}`));
-    const row = html("div", { class: "bar-row" }), track = html("div", { class: "track" });
+    const li = html("li"), head = html("div", { class: "bar-head" }), track = html("div", { class: "track" });
+    head.append(html("span", { class: "n", title: p.name }, `${p.name}${p.state !== "Ready" ? ` · ${p.state.toLowerCase()}` : ""}`),
+      html("span", { class: "pct", style: `color:${busy ? "#B7791F" : "#0B7A60"}` }, v === null ? "…" : `${v}%`));
     track.append(html("div", { class: "fill", style: `width:${Math.min(v || 0, 100)}%;background:${busy ? "#FFB81C" : "#17C9A1"}` }));
-    row.append(track, html("span", { class: "pct", style: `color:${busy ? "#B7791F" : "#0B7A60"}` }, v === null ? "…" : `${v}%`));
-    li.append(row);
+    li.append(head, track);
     ul.append(li);
   }
 }
