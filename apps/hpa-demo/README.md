@@ -20,6 +20,10 @@ for DEV):
   while the page is open, and every open page adds its own;
 - pods over time, CPU per pod, average CPU against the 50% target, the requests this page sent and which pods
   answered them, and what the autoscaler is doing.
+- **Pod events**, a terminal-style console like `kubectl get pods --watch`: a line for every pod that is created
+  (`+`), changes state (`~`, e.g. Starting → Ready, Ready → Terminating) or is deleted (`-`), and for every change in
+  the autoscaler's target (`scale out 1 → 3 pods`). Pause and Clear buttons. It's worked out from the same 2-second
+  updates, so it needs no extra permissions, and it only shows what happened while the page was open.
 
 The page reads its data from the Kubernetes API with a **read-only** account (`app-reader`: its own namespace's pods,
 autoscaler and pod CPU; no Secrets, no writes). `curl`, `wget` and the load generator still get the plain-text

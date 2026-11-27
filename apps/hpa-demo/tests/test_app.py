@@ -114,7 +114,7 @@ class BurnForTest(unittest.TestCase):
 
 
 def pod(name, node="dev01", ready=True, phase="Running", deleting=False):
-    meta = {"name": name}
+    meta = {"name": name, "creationTimestamp": "2026-11-27T08:58:00Z"}
     if deleting:
         meta["deletionTimestamp"] = "2026-11-27T09:00:00Z"
     return {"metadata": meta, "spec": {"nodeName": node},
@@ -144,6 +144,7 @@ class BuildStateTest(unittest.TestCase):
         self.assertEqual((by["hpa-demo-c"]["state"], by["hpa-demo-c"]["cpuPercent"]), ("Starting", None))
         self.assertEqual(by["hpa-demo-d"]["state"], "Terminating")
         self.assertEqual(by["hpa-demo-a"]["node"], "dev01")
+        self.assertEqual(by["hpa-demo-a"]["created"], "2026-11-27T08:58:00Z")
 
     def test_autoscaler(self):
         a = app.build_state(self.PODS, self.HPA, self.METRICS, "me")["autoscaler"]

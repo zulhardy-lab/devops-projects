@@ -69,6 +69,18 @@
   </section>
 </div>
 
+<section class="console" aria-labelledby="console-h">
+  <div class="console-bar">
+    <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    <h2 id="console-h" class="console-title">Pod events · <span id="console-cmd">kubectl get pods --watch</span></h2>
+    <div class="console-actions">
+      <button type="button" id="console-pause" aria-pressed="false">Pause</button>
+      <button type="button" id="console-clear">Clear</button>
+    </div>
+  </div>
+  <div class="console-body" id="console" role="log" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
+</section>
+
 <div class="grid">
   <section class="rings" aria-label="Summary" id="rings"></section>
 
