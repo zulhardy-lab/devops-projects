@@ -34,6 +34,10 @@ case "${1:-}" in
     # On your own cluster the namespace doesn't exist yet: create it (plain, no DEV/PRD node rule).
     # On the author's homelab it was created by onboarding and is left as it is.
     kubectl get namespace "${ns}" >/dev/null 2>&1 || kubectl create namespace "${ns}"
+    # The dashboard's read-only account. On the author's homelab, onboarding creates it; elsewhere, create it here.
+    if ! kubectl get namespace "${ns}" -o jsonpath='{.metadata.labels.homelab\.zulhardy/app}' 2>/dev/null | grep -q .; then
+      kubectl apply -n "${ns}" -f "${k8s}/rbac-app-reader.yaml"
+    fi
     scripts/deploy.sh hpa-demo "${env}"
     ;;
   test)

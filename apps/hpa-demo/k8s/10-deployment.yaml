@@ -14,6 +14,10 @@ spec:
       labels:
         app: hpa-demo
     spec:
+      # Read-only account for the dashboard: its own namespace's pods, autoscaler and pod CPU, nothing else.
+      # On the homelab it comes from onboarding; on your own cluster scripts/hpa-demo.sh creates it (rbac-app-reader.yaml).
+      serviceAccountName: app-reader
+      automountServiceAccountToken: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

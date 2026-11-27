@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hpa-demo: watch Kubernetes scale</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand">
+    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><path d="M18 3 31 10.5v15L18 33 5 25.5v-15z" fill="#10264F"/><circle cx="18" cy="18" r="5" fill="#FFB81C"/></svg>
+    <div><strong class="name">hpa-demo</strong><span class="muted small">Load balancing and autoscaling on Kubernetes</span></div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="ns">Namespace …</span>
+    <span class="chip live" id="live"><span class="dot"></span><span id="live-text">Connecting…</span></span>
+  </div>
+</header>
+
+<p class="notice" id="notice" hidden></p>
+
+<section class="card load" aria-labelledby="load-h">
+  <div>
+    <h2 id="load-h">Generate load</h2>
+    <span class="muted" id="load-hint">Off: the autoscaler keeps 1 pod.</span>
+  </div>
+  <div class="load-controls">
+    <div class="seg" role="group" aria-label="Quick load levels" id="levels"></div>
+    <div class="slider">
+      <label for="level">Load</label>
+      <input id="level" type="range" min="0" max="300" step="10" value="0">
+      <output for="level" id="level-out">0%</output>
+    </div>
+  </div>
+</section>
+
+<div class="grid">
+  <section class="card cluster" aria-labelledby="cluster-h">
+    <div class="head"><h2 id="cluster-h">Cluster</h2><span class="pill" id="node-count">…</span></div>
+    <svg id="map" viewBox="0 0 360 340" role="img" aria-label="Cluster map"></svg>
+    <div class="legend">
+      <span><i class="sw busy"></i>Above target</span>
+      <span><i class="sw ok"></i>At or below target</span>
+      <span><i class="sw start"></i>Starting</span>
+    </div>
+    <div class="served"><span class="muted-l small">This page was served by</span><span class="mono" id="served">…</span></div>
+  </section>
+
+  <section class="card pods" aria-labelledby="pods-h">
+    <h2 id="pods-h">Pods</h2>
+    <span class="big ok-t"><span id="pod-count">…</span> <span class="of" id="pod-max"></span></span>
+    <span class="muted small" id="pod-note">min 1 · the autoscaler decides the rest</span>
+    <svg id="pod-chart" class="spark" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+  </section>
+
+  <section class="card" aria-labelledby="cpu-h">
+    <h2 id="cpu-h">CPU per pod</h2>
+    <p class="muted small">% of the 100m CPU each pod asks for</p>
+    <ul class="bars" id="pod-bars"></ul>
+  </section>
+
+  <section class="card wide" aria-labelledby="avg-h">
+    <div class="head"><h2 id="avg-h">Average CPU vs target</h2><span class="pill">Last 5 minutes</span></div>
+    <svg id="cpu-chart" viewBox="0 0 700 220" role="img" aria-label="Average CPU over the last 5 minutes"></svg>
+  </section>
+</div>
+
+<div class="grid">
+  <section class="rings" aria-label="Summary" id="rings"></section>
+
+  <section class="card mid" aria-labelledby="rps-h">
+    <div class="head"><h2 id="rps-h">Sent from this page</h2><span class="big ok-t small-big" id="rps-now">0/s</span></div>
+    <div class="rps" id="rps"></div>
+    <div class="axis"><span>5 min ago</span><span>now</span></div>
+    <p class="muted small" id="answers">Answered by: nobody yet</p>
+  </section>
+
+  <section class="side">
+    <div class="card">
+      <h2 class="h3">Autoscaler</h2>
+      <span class="state" id="hpa-state">…</span>
+      <span class="muted small" id="hpa-note"></span>
+    </div>
+    <div class="card dark">
+      <h2 class="h3">How it works</h2>
+      <span class="muted-l small">Each request uses about 20 ms of CPU. The slider sets how many this page sends per second. Above 50% average CPU the autoscaler adds pods (up to 5); after a quiet minute it removes them.</span>
+    </div>
+  </section>
+</div>
+
+<footer class="muted small">Live data from the Kubernetes API (read-only, this namespace only) and metrics-server, every 2 s. Load only runs while this page is open. Source: zulhardy-lab/devops-projects · apps/hpa-demo</footer>
+</div>
+</body>
+</html>

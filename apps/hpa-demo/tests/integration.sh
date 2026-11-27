@@ -19,6 +19,18 @@ for _ in 1 2 3 4 5; do
   [[ "${body}" == "OK from "* ]] || fail "/ returned '${body}'"
 done
 
+echo "== GET / as a browser (the dashboard)"
+page="$(curl "${curl_args[@]}" -H "Accept: text/html" "${base}/")"
+[[ "${page}" == *"<title>hpa-demo"* ]] || fail "/ with Accept: text/html did not return the dashboard"
+
+echo "== GET /burn"
+[[ "$(curl "${curl_args[@]}" "${base}/burn")" == '{"pod": "'* ]] || fail "/burn did not name the pod"
+
+echo "== GET /api/state"
+state="$(curl "${curl_args[@]}" "${base}/api/state")"
+[[ "${state}" == *'"available": '* ]] || fail "/api/state returned '${state}'"
+echo "${state}" | grep -q '"available": true' && echo "   (cluster data available)" || echo "   (no cluster data: fine outside Kubernetes)"
+
 echo "== GET /does-not-exist"
 code="$(curl "${curl_args[@]}" -o /dev/null -w '%{http_code}' "${base}/does-not-exist")"
 [ "${code}" = "404" ] || fail "unknown path returned ${code}, expected 404"
