@@ -10,6 +10,11 @@ The app is a tiny Python web server (standard library only). Every request makes
 replies with the name of the pod that answered. Open it in a browser and you get a **live dashboard**: drag a
 slider to create load, and watch Kubernetes add and remove pods.
 
+![The hpa-demo dashboard: load buttons and slider, cluster map, pods over time, CPU per pod, average CPU against the 50% target, the Pod events console, and summary cards](docs/dashboard.png)
+
+*On the author's homelab (DEV), a few minutes after a run at 300%: the autoscaler scaled out from 1 to 5 pods
+(CPU 330%), then back in to 2 once the load dropped. The Pod events console shows each step.*
+
 On the author's homelab: **DEV** `http://hpa-demo.192.168.0.104.nip.io` (pods on dev01) and **PRD**
 `http://hpa-demo.192.168.0.103.nip.io` (pods on prd01, after approval).
 
