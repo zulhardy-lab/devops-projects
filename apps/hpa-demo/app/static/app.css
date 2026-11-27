@@ -28,6 +28,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .of { font-size: 16px; font-weight: 500; color: #5B6B86; }
 .load { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; }
 .load > div:first-child { display: flex; flex-direction: column; min-width: 240px; flex: 1 1 260px; }
+#load-hint { min-height: 3em; } /* room for 2 lines, so a longer hint doesn't push the page down */
 .load-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; flex: 1 1 560px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; border-radius: 12px; background: #EDF0F5; }
 .seg button { min-height: 44px; min-width: 64px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: #10264F; font: inherit; font-weight: 600; cursor: pointer; }
@@ -50,12 +51,14 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .served { margin-top: 8px; padding: 14px; border-radius: 12px; background: #10264F; color: #fff; display: flex; flex-direction: column; gap: 4px; }
 .pods { padding-bottom: 0; overflow: hidden; }
 .spark { width: calc(100% + 44px); margin: 8px -22px 0; height: 100px; display: block; }
-.bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.bars li { display: flex; flex-direction: column; gap: 4px; }
-.bar-row { display: flex; align-items: center; gap: 10px; }
-.track { flex: 1; height: 8px; border-radius: 4px; background: #E4E9F2; }
+/* Fixed height: pods come and go (up to 5 running + some terminating), and the page must not jump when they do. */
+.bars { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px; height: 216px; overflow-y: auto; }
+.bars li { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.bar-head .n { color: #5B6B86; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track { height: 8px; border-radius: 4px; background: #E4E9F2; }
 .fill { height: 8px; border-radius: 4px; transition: width .6s ease; }
-.pct { width: 48px; text-align: right; font-weight: 600; font-size: 13px; }
+.pct { flex: none; font-weight: 600; font-size: 13px; }
 .rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .ring { flex-direction: row; align-items: center; gap: 12px; padding: 18px; }
 .ring div { display: flex; flex-direction: column; }
