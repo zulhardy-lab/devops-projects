@@ -20,6 +20,8 @@ On the author's homelab: **DEV** `http://hpa-demo.192.168.0.104.nip.io` (pods on
 
 ## Contents
 
+- [What you'll learn](#what-youll-learn)
+- [Words you'll see](#words-youll-see)
 - [The dashboard](#the-dashboard)
 - [How it fits together](#how-it-fits-together)
 - [What you need](#what-you-need)
@@ -30,6 +32,27 @@ On the author's homelab: **DEV** `http://hpa-demo.192.168.0.104.nip.io` (pods on
 - [How it's built and deployed (on the author's homelab)](#how-its-built-and-deployed-on-the-authors-homelab)
 - [Security choices](#security-choices)
 - [Mapping to Azure](#mapping-to-azure)
+
+## What you'll learn
+
+- What **load balancing** looks like: one address, several pods sharing the work.
+- What an **autoscaler** does: it watches CPU and adds or removes pods by itself, within limits you set.
+- How to read the signs: pods starting and terminating, CPU against a target, the autoscaler's decisions.
+- How a Kubernetes app is put together from a few small files (Deployment, Service, Ingress, autoscaler).
+
+## Words you'll see
+
+| Word | Meaning |
+|---|---|
+| **Pod** | One running copy of the app. More pods = more capacity |
+| **Deployment** | Tells Kubernetes which app to run and keeps the right number of pods running |
+| **Service** | One stable address in front of the pods. It spreads requests across them: that's the **load balancing** |
+| **Ingress** | Lets your browser reach the Service from outside the cluster, by a web address |
+| **HPA** (HorizontalPodAutoscaler) | The **autoscaler**: adds pods when they're busy, removes them when they're quiet |
+| **metrics-server** | Measures each pod's CPU and memory, so the autoscaler knows how busy they are |
+| **CPU request, `100m`** | How much CPU each pod asks for: 100 *millicores* = a tenth of one CPU core. "50% CPU" means 50% of that |
+| **Namespace** | A separate area of the cluster. This demo uses `hpa-demo-dev` (or `hpa-demo-prd`) |
+| **ServiceAccount** | An identity for the app's pods. `app-reader` lets the dashboard *read* (never change) its own namespace |
 
 ## The dashboard
 
@@ -138,7 +161,7 @@ APP_INGRESS_HOST=hpa-demo.<your-node-ip>.nip.io scripts/hpa-demo.sh deploy
 ```
 
 [nip.io](https://nip.io) turns that name into the IP inside it, so no DNS setup is needed.
-Expected: `deployment "hpa-demo" successfully rolled out`.
+✅ It ends with `deployment "hpa-demo" successfully rolled out`.
 
 No Traefik (minikube, kind)? Deploy with `SKIP_INGRESS=1`, then `kubectl -n hpa-demo-dev port-forward svc/hpa-demo 8080:80`
 and open `http://localhost:8080`. The dashboard works, but [Inference] port-forward sends everything to **one** pod,
@@ -169,6 +192,8 @@ The original demo, with no browser needed.
 SKIP_INGRESS=1 scripts/hpa-demo.sh deploy
 ```
 
+✅ It ends with `deployment "hpa-demo" successfully rolled out`.
+
 **2. Check it answers**
 
 ```bash
@@ -190,7 +215,7 @@ scripts/hpa-demo.sh load-start
 scripts/hpa-demo.sh watch
 ```
 
-Within 1 to 2 minutes, `TARGETS` climbs well above 50% and pods are added until there are 5.
+✅ Within 1 to 2 minutes, `TARGETS` climbs well above 50% and pods are added until there are 5.
 Press `Ctrl+C` to stop watching. The load keeps running.
 
 **4. See the load balancing**
@@ -199,7 +224,7 @@ Press `Ctrl+C` to stop watching. The load keeps running.
 scripts/hpa-demo.sh test
 ```
 
-Now the replies come from **different pods**.
+✅ Now the replies come from **different pods**: the Service is spreading the requests.
 
 **5. Stop the load and watch it scale back in**
 
@@ -208,7 +233,7 @@ scripts/hpa-demo.sh load-stop
 scripts/hpa-demo.sh watch
 ```
 
-CPU drops to near 0%. After about a minute the extra pods show `Terminating`, and it goes back to 1 pod.
+✅ CPU drops to near 0%. After about a minute the extra pods show `Terminating`, and it goes back to 1 pod.
 
 **6. Clean up**
 
@@ -268,30 +293,31 @@ From an earlier version of the homelab (2 nodes, namespace `hpa-demo`, before th
 
 ## How it's built and deployed (on the author's homelab)
 
-hpa-demo uses this repo's generic apps pipeline, [`.github/workflows/apps.yml`](../../.github/workflows/apps.yml),
-like any app under `apps/`. Before it can deploy, the homelab must have **onboarded** it: that's done in the
-[homelab repo](https://github.com/zulhardy-lab/homelab) (its `homelab_apps` list), not here.
+You don't need any of this to **try** the demo: on your own cluster, `scripts/hpa-demo.sh deploy` uses your own
+kubeconfig. This section is about how the author's homelab deploys it automatically. The full story, step by step,
+is in this repo's [README](../../README.md#how-a-change-gets-deployed-step-by-step).
 
-Merging a change under `apps/hpa-demo/` into `main`:
+**Before the first deploy:** hpa-demo had to be **onboarded** on the homelab, i.e. added to `homelab_apps` in the
+[homelab repo](https://github.com/zulhardy-lab/homelab). Onboarding creates its namespaces (`hpa-demo-dev`,
+`hpa-demo-prd`), its deploy accounts, and the dashboard's read-only `app-reader` account
+([`app-deployer-rbac.yaml.tmpl`](https://github.com/zulhardy-lab/homelab/blob/main/ansible/files/k8s/app-deployer-rbac.yaml.tmpl)).
 
-1. **Test and scan** (GitHub-hosted runners): unit tests in [`tests/test_app.py`](tests/test_app.py), Trivy scan of the repo.
-2. **Build** (GitHub-hosted runner): [`scripts/build-image.sh`](../../scripts/build-image.sh) builds
+**Every time a change under `apps/hpa-demo/` is merged:**
+
+1. **Test and scan** (GitHub's machines): the unit tests in [`tests/test_app.py`](tests/test_app.py) and a Trivy scan
+   of the repo.
+2. **Build** (GitHub's machines): [`scripts/build-image.sh`](../../scripts/build-image.sh) builds
    `ghcr.io/zulhardy-lab/hpa-demo:sha-<last commit that changed apps/hpa-demo/app>`, runs
-   [`tests/integration.sh`](tests/integration.sh) against the container (plain-text replies, the dashboard page,
-   `/burn`, `/api/state`, 404s), scans the image, and only then pushes it.
-3. **DEV** (self-hosted runner on ops01, no approval): a 10-minute token that only works in `hpa-demo-dev`;
-   [`scripts/deploy.sh hpa-demo dev`](../../scripts/deploy.sh), rollout check, then `integration.sh` again against
+   [`tests/integration.sh`](tests/integration.sh) against the container (the plain-text reply, the dashboard page,
+   `/burn`, `/api/state`, 404s), scans the image, and only then publishes it.
+3. **DEV** (the homelab runner on ops01, no approval): a 10-minute credential that only works in `hpa-demo-dev`,
+   [`scripts/deploy.sh hpa-demo dev`](../../scripts/deploy.sh), a rollout check, then `integration.sh` again against
    `http://hpa-demo.192.168.0.104.nip.io`. The pods run on dev01.
-4. **PRD** (approval required): the same image, a token that only works in `hpa-demo-prd`, pods on prd01,
-   smoke test against `http://hpa-demo.192.168.0.103.nip.io`.
+4. **PRD** (approval done manually): the same image, a credential that only works in `hpa-demo-prd`, pods on prd01,
+   and a smoke test against `http://hpa-demo.192.168.0.103.nip.io`.
 
-Only the numbered manifests in `k8s/` are deployed; `load-generator.yaml` and `rbac-app-reader.yaml` aren't.
-Who may deploy, and with which permissions, is in the homelab repo's
-[`app-deployer-rbac.yaml.tmpl`](https://github.com/zulhardy-lab/homelab/blob/main/ansible/files/k8s/app-deployer-rbac.yaml.tmpl),
-applied when the app is onboarded. The same template creates the dashboard's read-only `app-reader` account.
-How it all works: [README.md](../../README.md) here, and the homelab's
-[docs/AUTOMATION.md](https://github.com/zulhardy-lab/homelab/blob/main/docs/AUTOMATION.md).
-You don't need any of this to *try* the demo on your own cluster: `scripts/hpa-demo.sh deploy` uses your own kubeconfig.
+Only the **numbered** files in `k8s/` are deployed. `load-generator.yaml` and `rbac-app-reader.yaml` aren't: the load
+test stays a manual step, and the read-only account comes from onboarding.
 
 ## Security choices
 
