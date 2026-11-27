@@ -9,6 +9,29 @@ It shows two things that cloud applications are usually asked to do:
 The app is a tiny Python web server. Every request makes it do some CPU work, and it replies with the
 name of the pod that answered, so you can *see* both the load balancing and the scaling happen.
 
+**Open it in a browser and you get a live dashboard** (on the author's homelab: `http://hpa-demo.192.168.0.104.nip.io`
+for DEV):
+
+- a **cluster map**: the Service in the middle, each node as a hexagon, each pod as a dot (amber above the CPU target,
+  teal at or below it, dashed while starting);
+- **Generate load**: buttons for Off, 50%, 100%, 200% and 300%, and a slider from 0% to 300%. The percentage is how
+  much CPU this page asks for, as a share of one pod's 100m: 100% means one pod's worth, so expect about 2 pods at
+  50% each; 200% means about 4. Above 250%, 5 pods aren't enough and CPU stays above the target. The load only runs
+  while the page is open, and every open page adds its own;
+- pods over time, CPU per pod, average CPU against the 50% target, the requests this page sent and which pods
+  answered them, and what the autoscaler is doing.
+
+The page reads its data from the Kubernetes API with a **read-only** account (`app-reader`: its own namespace's pods,
+autoscaler and pod CPU; no Secrets, no writes). `curl`, `wget` and the load generator still get the plain-text
+`OK from <pod>` reply.
+
+| Path | What it does |
+|---|---|
+| `/` | Browsers: the dashboard. Anything else: CPU work, then `OK from <pod>` |
+| `/burn` | About 20 ms of CPU, then `{"pod": "<name>"}`. The dashboard's load uses this |
+| `/api/state` | The pods, their CPU and the autoscaler, as JSON (`"available": false` outside a cluster) |
+| `/healthz` | `ok`, for Kubernetes' health checks |
+
 | Requirement | Kubernetes piece | File |
 |---|---|---|
 | Load balancing inside the cluster | Service | [`k8s/20-service.yaml`](k8s/20-service.yaml) |
@@ -164,9 +187,6 @@ hpa-demo uses this repo's generic apps pipeline, [`.github/workflows/apps.yml`](
 like any app under `apps/`. Before it can deploy, the homelab must have **onboarded** it: that's done in the
 [homelab repo](https://github.com/zulhardy-lab/homelab) (its `homelab_apps` list), not here.
 
-> **Deploys are switched off for now** ([`deploy.disabled`](deploy.disabled)), and hpa-demo isn't onboarded on the
-> homelab: steps 1 and 2 run, steps 3 and 4 don't.
-
 Merging a change under `apps/hpa-demo/` into `main`:
 
 1. **Test and scan** (GitHub-hosted runners): unit tests in [`tests/test_app.py`](tests/test_app.py), Trivy scan of the repo.
@@ -182,7 +202,8 @@ Merging a change under `apps/hpa-demo/` into `main`:
 Only the numbered manifests in `k8s/` are deployed; `load-generator.yaml` isn't, so the load test stays manual.
 Who may deploy, and with which permissions, is in the homelab repo's
 [`app-deployer-rbac.yaml.tmpl`](https://github.com/zulhardy-lab/homelab/blob/main/ansible/files/k8s/app-deployer-rbac.yaml.tmpl),
-applied when the app is onboarded. How it all works: [README.md](../../README.md) here, and the homelab's
+applied when the app is onboarded. The same template creates the dashboard's read-only `app-reader` account; on your
+own cluster, `scripts/hpa-demo.sh deploy` creates it from [`k8s/rbac-app-reader.yaml`](k8s/rbac-app-reader.yaml). How it all works: [README.md](../../README.md) here, and the homelab's
 [docs/AUTOMATION.md](https://github.com/zulhardy-lab/homelab/blob/main/docs/AUTOMATION.md).
 You don't need any of this to *try* the demo on your own cluster: `scripts/hpa-demo.sh deploy` uses your own kubeconfig.
 
@@ -191,6 +212,12 @@ You don't need any of this to *try* the demo on your own cluster: `scripts/hpa-d
 - Base images (`python:3.13-slim`, `busybox:1.37`) are **pinned by digest**, so a rebuild can't silently pick up a different image.
 - The app runs as a **non-root** user, with a **read-only filesystem**, **no Linux capabilities**, and no privilege escalation.
 - The pipeline only gets `contents: read` and `packages: write`, for that one run.
+- The dashboard's account is **read-only, in its own namespace only** (pods, autoscaler, pod CPU). The load buttons
+  are plain HTTP requests: no Kubernetes write permissions anywhere.
+- The page is served with a strict **Content-Security-Policy** (`default-src 'self'`: no inline scripts, no outside
+  fonts or scripts), and everything it shows from the server is set as text, never as HTML.
+- `/burn` uses a fixed slice of CPU; a request can't ask for more. `/api/state` is cached for a second per pod, so
+  many open pages don't flood the Kubernetes API.
 
 ## Mapping to Azure
 

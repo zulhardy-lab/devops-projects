@@ -11,7 +11,7 @@ onboarded. You don't need the homelab to try a project: each one runs on any Kub
 
 | Project | What it is | Folder and docs | DEV / PRD address | Package |
 |---|---|---|---|---|
-| **hpa-demo** | Load balancing and autoscaling on Kubernetes (1 → 5 → 1 pods under load). Runs on any cluster with metrics-server. | [apps/hpa-demo](apps/hpa-demo/README.md) | Deploys **switched off** for now ([`deploy.disabled`](apps/hpa-demo/deploy.disabled)); when on: `hpa-demo.192.168.0.104.nip.io` / `hpa-demo.192.168.0.103.nip.io` | `ghcr.io/zulhardy-lab/hpa-demo` (published by the first build after merge) |
+| **hpa-demo** | Load balancing and autoscaling on Kubernetes (1 → 5 → 1 pods under load), with a live dashboard and a load slider. Runs on any cluster with metrics-server. | [apps/hpa-demo](apps/hpa-demo/README.md) | Live dashboard: DEV `hpa-demo.192.168.0.104.nip.io`, PRD `hpa-demo.192.168.0.103.nip.io` (after approval) | `ghcr.io/zulhardy-lab/hpa-demo` (published by the first build after merge) |
 
 ## How a change gets deployed
 
