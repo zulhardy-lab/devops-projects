@@ -10,7 +10,7 @@ The app is a tiny Python web server (standard library only). Every request makes
 replies with the name of the pod that answered. Open it in a browser and you get a **live dashboard**: drag a
 slider to create load, and watch Kubernetes add and remove pods.
 
-![The hpa-demo dashboard: load buttons and slider, cluster map, pods over time, CPU per pod, average CPU against the 50% target, the Pod events console, and summary cards](docs/dashboard.png)
+![The hpa-demo dashboard: load buttons and slider, cluster map, pods over time, CPU per pod, average CPU against the 50% target, the Pod events console, and summary cards](hpa-demo/dashboard.png)
 
 *On the author's homelab (DEV), a few minutes after a run at 300%: the autoscaler scaled out from 1 to 5 pods
 (CPU 330%), then back in to 2 once the load dropped. The Pod events console shows each step.*
@@ -126,12 +126,12 @@ flowchart LR
 
 | Requirement | Kubernetes piece | File |
 |---|---|---|
-| Something to scale | Deployment of the demo app | [`k8s/10-deployment.yaml`](k8s/10-deployment.yaml) |
-| Load balancing inside the cluster | Service | [`k8s/20-service.yaml`](k8s/20-service.yaml) |
-| Load balancing from outside, and the dashboard's address | Ingress (Traefik, built into k3s) | [`k8s/30-ingress.yaml`](k8s/30-ingress.yaml) |
-| Scale out when busy, scale in when quiet | HorizontalPodAutoscaler: 1 to 5 pods, target 50% CPU | [`k8s/40-hpa.yaml`](k8s/40-hpa.yaml) |
-| The dashboard's view of the cluster | ServiceAccount `app-reader` + read-only Role | [`k8s/rbac-app-reader.yaml`](k8s/rbac-app-reader.yaml) (on the homelab: created by onboarding) |
-| Traffic from the command line | Load generator (2 pods sending requests in a loop) | [`k8s/load-generator.yaml`](k8s/load-generator.yaml) |
+| Something to scale | Deployment of the demo app | [`k8s/10-deployment.yaml`](../apps/hpa-demo/k8s/10-deployment.yaml) |
+| Load balancing inside the cluster | Service | [`k8s/20-service.yaml`](../apps/hpa-demo/k8s/20-service.yaml) |
+| Load balancing from outside, and the dashboard's address | Ingress (Traefik, built into k3s) | [`k8s/30-ingress.yaml`](../apps/hpa-demo/k8s/30-ingress.yaml) |
+| Scale out when busy, scale in when quiet | HorizontalPodAutoscaler: 1 to 5 pods, target 50% CPU | [`k8s/40-hpa.yaml`](../apps/hpa-demo/k8s/40-hpa.yaml) |
+| The dashboard's view of the cluster | ServiceAccount `app-reader` + read-only Role | [`k8s/rbac-app-reader.yaml`](../apps/hpa-demo/k8s/rbac-app-reader.yaml) (on the homelab: created by onboarding) |
+| Traffic from the command line | Load generator (2 pods sending requests in a loop) | [`k8s/load-generator.yaml`](../apps/hpa-demo/k8s/load-generator.yaml) |
 
 ## What you need
 
@@ -139,7 +139,7 @@ flowchart LR
   - **k3s**: metrics-server and Traefik are included. This is what the author used.
   - **minikube**: run `minikube addons enable metrics-server` first.
   - **kind**, **Docker Desktop** and others: install metrics-server yourself.
-- `kubectl` connected to that cluster, with admin rights (`scripts/hpa-demo.sh deploy` creates a namespace and the
+- `kubectl` connected to that cluster, with admin rights (`apps/hpa-demo/hpa-demo.sh deploy` creates a namespace and the
   read-only account). Check with `kubectl top nodes`: if it prints CPU and memory, you're ready.
 - `git` and `bash`.
 - About 1.5 CPU cores free in the cluster while the load test runs.
@@ -157,7 +157,7 @@ cd devops-projects
 **1. Deploy, with an Ingress so your browser can reach it** (k3s, or any cluster with Traefik):
 
 ```bash
-APP_INGRESS_HOST=hpa-demo.<your-node-ip>.nip.io scripts/hpa-demo.sh deploy
+APP_INGRESS_HOST=hpa-demo.<your-node-ip>.nip.io apps/hpa-demo/hpa-demo.sh deploy
 ```
 
 [nip.io](https://nip.io) turns that name into the IP inside it, so no DNS setup is needed.
@@ -180,7 +180,7 @@ the extra pods `Terminating`, then `Deleted`. Back to 1 pod.
 
 **5. Try 300%:** it stops at 5 pods and the Autoscaler says **At the maximum**: the limit you set in the HPA.
 
-**6. Clean up:** `scripts/hpa-demo.sh delete` (see below).
+**6. Clean up:** `apps/hpa-demo/hpa-demo.sh delete` (see below).
 
 ## Run it: from the command line
 
@@ -189,7 +189,7 @@ The original demo, with no browser needed.
 **1. Deploy** (`SKIP_INGRESS=1` if your cluster has no Traefik)
 
 ```bash
-SKIP_INGRESS=1 scripts/hpa-demo.sh deploy
+SKIP_INGRESS=1 apps/hpa-demo/hpa-demo.sh deploy
 ```
 
 ✅ It ends with `deployment "hpa-demo" successfully rolled out`.
@@ -197,7 +197,7 @@ SKIP_INGRESS=1 scripts/hpa-demo.sh deploy
 **2. Check it answers**
 
 ```bash
-scripts/hpa-demo.sh test
+apps/hpa-demo/hpa-demo.sh test
 ```
 
 This runs a short-lived pod inside the cluster that sends 10 requests. With 1 pod, every reply has the same name:
@@ -211,8 +211,8 @@ OK from hpa-demo-5676d75f99-s52jt
 **3. Start the load and watch it scale out**
 
 ```bash
-scripts/hpa-demo.sh load-start
-scripts/hpa-demo.sh watch
+apps/hpa-demo/hpa-demo.sh load-start
+apps/hpa-demo/hpa-demo.sh watch
 ```
 
 ✅ Within 1 to 2 minutes, `TARGETS` climbs well above 50% and pods are added until there are 5.
@@ -221,7 +221,7 @@ Press `Ctrl+C` to stop watching. The load keeps running.
 **4. See the load balancing**
 
 ```bash
-scripts/hpa-demo.sh test
+apps/hpa-demo/hpa-demo.sh test
 ```
 
 ✅ Now the replies come from **different pods**: the Service is spreading the requests.
@@ -229,8 +229,8 @@ scripts/hpa-demo.sh test
 **5. Stop the load and watch it scale back in**
 
 ```bash
-scripts/hpa-demo.sh load-stop
-scripts/hpa-demo.sh watch
+apps/hpa-demo/hpa-demo.sh load-stop
+apps/hpa-demo/hpa-demo.sh watch
 ```
 
 ✅ CPU drops to near 0%. After about a minute the extra pods show `Terminating`, and it goes back to 1 pod.
@@ -238,7 +238,7 @@ scripts/hpa-demo.sh watch
 **6. Clean up**
 
 ```bash
-scripts/hpa-demo.sh delete
+apps/hpa-demo/hpa-demo.sh delete
 ```
 
 This removes the whole `hpa-demo-dev` namespace and everything in it. (On the author's homelab it refuses:
@@ -252,50 +252,50 @@ From an earlier version of the homelab (2 nodes, namespace `hpa-demo`, before th
 
 **Under load:** CPU at 501% of target, the HPA has scaled from 1 to 5 pods, spread across both nodes.
 
-![Scaled out to 5 pods under load](docs/1-scaled-out-under-load.png)
+![Scaled out to 5 pods under load](hpa-demo/1-scaled-out-under-load.png)
 
 **Load stopped:** CPU at 1%, the extra pods are terminating.
 
-![Scaling in](docs/2-scaling-in.png)
+![Scaling in](hpa-demo/2-scaling-in.png)
 
 **Back to 1 pod**, about 4 minutes after the test started.
 
-![Back to one pod](docs/3-back-to-one-pod.png)
+![Back to one pod](hpa-demo/3-back-to-one-pod.png)
 
 ## Things you can change
 
 | What | Where | Default |
 |---|---|---|
-| Min / max pods | `minReplicas`, `maxReplicas` in [`k8s/40-hpa.yaml`](k8s/40-hpa.yaml) | 1 / 5 |
-| CPU target | `averageUtilization` in [`k8s/40-hpa.yaml`](k8s/40-hpa.yaml) | 50% |
-| How fast it scales back in | `stabilizationWindowSeconds` in [`k8s/40-hpa.yaml`](k8s/40-hpa.yaml) | 60s (Kubernetes default is 300s) |
-| CPU each pod asks for | `resources.requests.cpu` in [`k8s/10-deployment.yaml`](k8s/10-deployment.yaml). Change `CPU_REQUEST_MILLICORES` (env var) and `REQUEST_M` in [`app/static/app.js`](app/static/app.js) to match | 100m |
-| CPU per dashboard request | `BURN_MS` env var on the Deployment, and `BURN_MS` in [`app/static/app.js`](app/static/app.js) to match | 20 ms |
+| Min / max pods | `minReplicas`, `maxReplicas` in [`k8s/40-hpa.yaml`](../apps/hpa-demo/k8s/40-hpa.yaml) | 1 / 5 |
+| CPU target | `averageUtilization` in [`k8s/40-hpa.yaml`](../apps/hpa-demo/k8s/40-hpa.yaml) | 50% |
+| How fast it scales back in | `stabilizationWindowSeconds` in [`k8s/40-hpa.yaml`](../apps/hpa-demo/k8s/40-hpa.yaml) | 60s (Kubernetes default is 300s) |
+| CPU each pod asks for | `resources.requests.cpu` in [`k8s/10-deployment.yaml`](../apps/hpa-demo/k8s/10-deployment.yaml). Change `CPU_REQUEST_MILLICORES` (env var) and `REQUEST_M` in [`app/static/app.js`](../apps/hpa-demo/app/static/app.js) to match | 100m |
+| CPU per dashboard request | `BURN_MS` env var on the Deployment, and `BURN_MS` in [`app/static/app.js`](../apps/hpa-demo/app/static/app.js) to match | 20 ms |
 | CPU work per plain-text request | `CPU_WORK_ITERATIONS` env var on the Deployment | 1000000 |
-| Load from the command line | `replicas` in [`k8s/load-generator.yaml`](k8s/load-generator.yaml) | 2 |
-| Highest load level on the page | `max="300"` in [`app/static/index.html`](app/static/index.html) and `LEVELS` in `app.js` | 300% |
+| Load from the command line | `replicas` in [`k8s/load-generator.yaml`](../apps/hpa-demo/k8s/load-generator.yaml) | 2 |
+| Highest load level on the page | `max="300"` in [`app/static/index.html`](../apps/hpa-demo/app/static/index.html) and `LEVELS` in `app.js` | 300% |
 
 ## Troubleshooting
 
 | You see | Likely cause | What to do |
 |---|---|---|
 | Dashboard: **No cluster data: Not running in Kubernetes** | The app runs outside a cluster (e.g. `python app.py` on your laptop) | Expected. The load still works; the cluster parts stay empty |
-| Dashboard: **No cluster data: Can't read the Kubernetes API** | The `app-reader` account or its Role is missing | `kubectl -n hpa-demo-dev auth can-i list pods --as=system:serviceaccount:hpa-demo-dev:app-reader` should say `yes`. If not, re-run `scripts/hpa-demo.sh deploy` (own cluster) or the homelab's onboarding (homelab) |
+| Dashboard: **No cluster data: Can't read the Kubernetes API** | The `app-reader` account or its Role is missing | `kubectl -n hpa-demo-dev auth can-i list pods --as=system:serviceaccount:hpa-demo-dev:app-reader` should say `yes`. If not, re-run `apps/hpa-demo/hpa-demo.sh deploy` (own cluster) or the homelab's onboarding (homelab) |
 | Dashboard: CPU shows `…`, Average CPU stays empty | metrics-server not installed or still starting | `kubectl top pods -n hpa-demo-dev`. Wait a minute, or install metrics-server |
 | Dashboard: load is on but nothing scales | The tab is in the background (browsers slow it down), or the level is 50% or less | Keep the tab in front, and pick 100% or more |
 | Dashboard: "Answered by" shows only one pod | You're using `kubectl port-forward`, which goes to one pod | Use the Ingress address to see the load balancing |
 | `TARGETS` shows `<unknown>` | metrics-server not installed or still starting | Check `kubectl top pods -n hpa-demo-dev`. Wait a minute, or install metrics-server |
 | Pods stuck in `ImagePullBackOff` | Cluster can't reach `ghcr.io` | Check the nodes have internet access |
-| No pods at all; `kubectl -n hpa-demo-dev get events` shows `serviceaccount "app-reader" not found` | The read-only account wasn't created | Deploy with `scripts/hpa-demo.sh deploy`, which creates it on your own cluster |
+| No pods at all; `kubectl -n hpa-demo-dev get events` shows `serviceaccount "app-reader" not found` | The read-only account wasn't created | Deploy with `apps/hpa-demo/hpa-demo.sh deploy`, which creates it on your own cluster |
 | Pods stay `Terminating` for about 30 seconds | The app doesn't handle the stop signal (SIGTERM), so Kubernetes waits for its 30 s grace period | Harmless in this demo |
 | `scripts/image-tag.sh` says no commit found | The repo was cloned with `--depth 1` | Clone normally (full history), or set `APP_IMAGE` yourself |
 | Pods never go above 1 | Not enough load, or the cluster is out of CPU | Raise the level (or `replicas` in the load generator); check `kubectl describe hpa -n hpa-demo-dev` |
 
 ## How it's built and deployed (on the author's homelab)
 
-You don't need any of this to **try** the demo: on your own cluster, `scripts/hpa-demo.sh deploy` uses your own
+You don't need any of this to **try** the demo: on your own cluster, `apps/hpa-demo/hpa-demo.sh deploy` uses your own
 kubeconfig. This section is about how the author's homelab deploys it automatically. The full story, step by step,
-is in this repo's [README](../../README.md#how-a-change-gets-deployed-step-by-step).
+is in this repo's [README](../README.md#how-a-change-gets-deployed-step-by-step).
 
 **Before the first deploy:** hpa-demo had to be **onboarded** on the homelab, i.e. added to `homelab_apps` in the
 [homelab repo](https://github.com/zulhardy-lab/homelab). Onboarding creates its namespaces (`hpa-demo-dev`,
@@ -304,14 +304,14 @@ is in this repo's [README](../../README.md#how-a-change-gets-deployed-step-by-st
 
 **Every time a change under `apps/hpa-demo/` is merged:**
 
-1. **Test and scan** (GitHub's machines): the unit tests in [`tests/test_app.py`](tests/test_app.py) and a Trivy scan
+1. **Test and scan** (GitHub's machines): the unit tests in [`tests/test_app.py`](../apps/hpa-demo/tests/test_app.py) and a Trivy scan
    of the repo.
-2. **Build** (GitHub's machines): [`scripts/build-image.sh`](../../scripts/build-image.sh) builds
+2. **Build** (GitHub's machines): [`scripts/build-image.sh`](../scripts/build-image.sh) builds
    `ghcr.io/zulhardy-lab/hpa-demo:sha-<last commit that changed apps/hpa-demo/app>`, runs
-   [`tests/integration.sh`](tests/integration.sh) against the container (the plain-text reply, the dashboard page,
+   [`tests/integration.sh`](../apps/hpa-demo/tests/integration.sh) against the container (the plain-text reply, the dashboard page,
    `/burn`, `/api/state`, 404s), scans the image, and only then publishes it.
 3. **DEV** (the homelab runner on ops01, no approval): a 10-minute credential that only works in `hpa-demo-dev`,
-   [`scripts/deploy.sh hpa-demo dev`](../../scripts/deploy.sh), a rollout check, then `integration.sh` again against
+   [`scripts/deploy.sh hpa-demo dev`](../scripts/deploy.sh), a rollout check, then `integration.sh` again against
    `http://hpa-demo.192.168.0.104.nip.io`. The pods run on dev01.
 4. **PRD** (approval done manually): the same image, a credential that only works in `hpa-demo-prd`, pods on prd01,
    and a smoke test against `http://hpa-demo.192.168.0.103.nip.io`.

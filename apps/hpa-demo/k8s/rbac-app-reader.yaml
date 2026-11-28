@@ -1,7 +1,7 @@
 # Read-only account for the dashboard (pods, autoscaler and pod CPU in this namespace only; no Secrets, no writes).
 # NOT applied by the pipeline (no NN- prefix): on the homelab, onboarding creates the same account
 # (zulhardy-lab/homelab, ansible/files/k8s/app-deployer-rbac.yaml.tmpl). On your own cluster,
-# "scripts/hpa-demo.sh deploy" applies it.
+# "apps/hpa-demo/hpa-demo.sh deploy" applies it.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

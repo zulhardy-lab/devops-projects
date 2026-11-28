@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Load-balancing + autoscaling demo. Works on any Kubernetes cluster that has metrics-server.
 #
-#   scripts/hpa-demo.sh deploy       deploy the app, Service, (optional) Ingress and autoscaler to hpa-demo-<env>
-#                                    (created for you on your own cluster; on the author's homelab it comes from onboarding)
-#   scripts/hpa-demo.sh test         send 10 requests from inside the cluster; shows which pod answered each one
-#   scripts/hpa-demo.sh load-start   start the load generator (pushes CPU up)
-#   scripts/hpa-demo.sh watch        watch the autoscaler and pods (Ctrl+C to stop watching)
-#   scripts/hpa-demo.sh load-stop    stop the load generator (autoscaler scales back down)
-#   scripts/hpa-demo.sh status       show everything in the demo's namespace
-#   scripts/hpa-demo.sh delete       remove the whole demo
+#   apps/hpa-demo/hpa-demo.sh deploy       deploy the app, Service, (optional) Ingress and autoscaler to hpa-demo-<env>
+#                                                (created for you on your own cluster; on the author's homelab it comes from onboarding)
+#   apps/hpa-demo/hpa-demo.sh test         send 10 requests from inside the cluster; shows which pod answered each one
+#   apps/hpa-demo/hpa-demo.sh load-start   start the load generator (pushes CPU up)
+#   apps/hpa-demo/hpa-demo.sh watch        watch the autoscaler and pods (Ctrl+C to stop watching)
+#   apps/hpa-demo/hpa-demo.sh load-stop    stop the load generator (autoscaler scales back down)
+#   apps/hpa-demo/hpa-demo.sh status       show everything in the demo's namespace
+#   apps/hpa-demo/hpa-demo.sh delete       remove the whole demo
 #
 # Optional settings (environment variables):
 #   HPA_DEMO_ENV      dev (default) or prd: which namespace to work in (hpa-demo-dev / hpa-demo-prd)
@@ -21,7 +21,7 @@
 # On the author's homelab, deploys happen automatically after merge (.github/workflows/apps.yml), once the app is
 # onboarded by the homelab repo (zulhardy-lab/homelab, list homelab_apps).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 env="${HPA_DEMO_ENV:-dev}"
 ns="hpa-demo-${env}"

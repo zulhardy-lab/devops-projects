@@ -1,4 +1,4 @@
-# Not deployed by the pipeline (not numbered). Started and stopped by: scripts/hpa-demo.sh load-start | load-stop
+# Not deployed by the pipeline (not numbered). Started and stopped by: apps/hpa-demo/hpa-demo.sh load-start | load-stop
 # Sends requests to the Service in a loop to push CPU up.
 apiVersion: apps/v1
 kind: Deployment

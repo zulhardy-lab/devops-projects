@@ -27,7 +27,7 @@ of your own. Every term is explained the first time it appears, and there's a wo
 
 | Project | What you'll learn from it | Folder and guide | Image |
 |---|---|---|---|
-| **hpa-demo** | Load balancing and autoscaling on Kubernetes: pods go 1 → 5 → 1 as load rises and falls, shown live on a dashboard with a load slider. Runs on any cluster with metrics-server | [apps/hpa-demo](apps/hpa-demo/README.md) | `ghcr.io/zulhardy-lab/hpa-demo` |
+| **hpa-demo** | Load balancing and autoscaling on Kubernetes: pods go 1 → 5 → 1 as load rises and falls, shown live on a dashboard with a load slider. Runs on any cluster with metrics-server | [apps/hpa-demo](apps/hpa-demo) · [guide](docs/hpa-demo.md) | `ghcr.io/zulhardy-lab/hpa-demo` |
 
 ## Words you'll see
 
@@ -132,9 +132,11 @@ apps/<name>/
   k8s/<other>.yaml        not numbered = not deployed automatically (e.g. load-generator.yaml)
   tests/test_*.py         REQUIRED unit tests (Python unittest), or an executable tests/unit.sh for other languages
   tests/integration.sh    REQUIRED if there's a Dockerfile or an Ingress: integration.sh BASE_URL [HOST_HEADER]
-  README.md               how to use it
+  <name>.sh               optional: helper script for this project only (shared pipeline scripts stay in scripts/)
   deploy.disabled         optional: if present, the app is tested, scanned and built, but NOT deployed
 ```
+
+The project's guide (how to use it) goes in `docs/<name>.md`, with its pictures in `docs/<name>/`.
 
 ✅ The PR checks show a new `app (<name>)` check, and it passes.
 
@@ -185,6 +187,7 @@ Done once, by hand, in GitHub's settings (the AI assistant working in this repo 
 
 ```
 apps/                 One folder per project (e.g. apps/hpa-demo)
+docs/                 One guide per project (e.g. docs/hpa-demo.md), pictures in docs/<name>/
 scripts/              What the pipelines actually do: tests, Trivy scans, image build, deploy
 scripts/lib/          OpenBao login, DEV/PRD addresses, the pinned Trivy install
 .github/workflows/    pr-checks.yml (every pull request) and apps.yml (after a merge)

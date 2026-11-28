@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# DEV / PRD environments: where each one runs and how it is reached. Sourced by deploy.sh, ci-apps.sh, hpa-demo.sh.
+# DEV / PRD environments: where each one runs and how it is reached. Sourced by deploy.sh, ci-apps.sh, apps/hpa-demo/hpa-demo.sh.
 #
 #   env      nodes   app address (nip.io turns the IP inside the name into that IP)
 #   dev      dev01   <app>.192.168.0.104.nip.io
