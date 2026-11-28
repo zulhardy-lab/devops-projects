@@ -188,7 +188,7 @@ apps/                 One folder per project (e.g. apps/hpa-demo)
 scripts/              What the pipelines actually do: tests, Trivy scans, image build, deploy
 scripts/lib/          OpenBao login, DEV/PRD addresses, the pinned Trivy install
 .github/workflows/    pr-checks.yml (every pull request) and apps.yml (after a merge)
-CLAUDE.md             Rules for the AI assistant working in this repo
+AGENTS.md             Rules for the AI assistant working in this repo
 ```
 
 The workflow files are kept short on purpose: they only call the scripts in `scripts/`. That way the real logic can
